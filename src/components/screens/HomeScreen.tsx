@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Search, Filter, RefreshCw } from 'lucide-react';
 import { MobileLayout } from '@/components/MobileLayout';
 import { JobCard, JobCardSkeleton } from '@/components/JobCard';
+import { JobDetailsModal } from '@/components/JobDetailsModal';
+import { FilterModal, JobFilters } from '@/components/FilterModal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -58,6 +60,16 @@ export const HomeScreen = () => {
   const [jobs, setJobs] = useState(mockJobs);
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedJob, setSelectedJob] = useState<typeof mockJobs[0] | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [activeFilters, setActiveFilters] = useState<JobFilters>({
+    locations: [],
+    salaryRange: [0, 1000000],
+    jobTypes: [],
+    experience: [],
+    postedWithin: 'anytime',
+    isVipOnly: false,
+  });
   const { toast } = useToast();
 
   const handleRefresh = async () => {
@@ -94,16 +106,38 @@ export const HomeScreen = () => {
 
   const handleQuickPreview = (jobId: string) => {
     const job = jobs.find(j => j.id === jobId);
+    if (job) {
+      setSelectedJob(job);
+    }
+  };
+
+  const handleApplyFilters = (filters: JobFilters) => {
+    setActiveFilters(filters);
+    // In a real app, this would trigger an API call with the filters
     toast({
-      title: "Quick Preview",
-      description: `Viewing ${job?.title} at ${job?.company}`,
+      title: "Filters Applied",
+      description: "Job listings have been updated",
     });
   };
 
-  const filteredJobs = jobs.filter(job =>
-    job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    job.company.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredJobs = jobs.filter(job => {
+    // Search query filter
+    const matchesSearch = job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         job.company.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    // Location filter
+    const matchesLocation = activeFilters.locations.length === 0 ||
+                           activeFilters.locations.includes(job.location);
+    
+    // Job type filter
+    const matchesJobType = activeFilters.jobTypes.length === 0 ||
+                          activeFilters.jobTypes.includes(job.type);
+    
+    // VIP filter
+    const matchesVIP = !activeFilters.isVipOnly || job.isVip;
+    
+    return matchesSearch && matchesLocation && matchesJobType && matchesVIP;
+  });
 
   const headerContent = (
     <div className="space-y-4">
@@ -137,6 +171,7 @@ export const HomeScreen = () => {
           variant="ghost"
           size="sm"
           className="px-3 text-primary-foreground hover:bg-primary-foreground/20"
+          onClick={() => setShowFilters(true)}
         >
           <Filter className="w-4 h-4" />
         </Button>
@@ -189,6 +224,22 @@ export const HomeScreen = () => {
             </Button>
           </div>
         )}
+
+        {/* Job Details Modal */}
+        {selectedJob && (
+          <JobDetailsModal
+            isOpen={!!selectedJob}
+            onClose={() => setSelectedJob(null)}
+            job={selectedJob}
+          />
+        )}
+
+        {/* Filter Modal */}
+        <FilterModal
+          isOpen={showFilters}
+          onClose={() => setShowFilters(false)}
+          onApplyFilters={handleApplyFilters}
+        />
       </div>
     </MobileLayout>
   );
