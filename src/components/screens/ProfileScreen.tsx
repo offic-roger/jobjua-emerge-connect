@@ -12,8 +12,12 @@ import {
   Bell,
   MessageSquare,
   HelpCircle,
-  LogOut
+  LogOut,
+  ChevronRight
 } from 'lucide-react';
+import { ProfileEditModal } from '@/components/ProfileEditModal';
+import { SavedJobsScreen } from '@/components/SavedJobsScreen';
+import { ApplicationsScreen } from '@/components/ApplicationsScreen';
 import { MobileLayout } from '@/components/MobileLayout';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -25,10 +29,13 @@ export const ProfileScreen = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [notifications, setNotifications] = useState(true);
   const [language, setLanguage] = useState('English');
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [showSavedJobs, setShowSavedJobs] = useState(false);
+  const [showApplications, setShowApplications] = useState(false);
   const { toast } = useToast();
 
   // Mock user data
-  const user = {
+  const [user, setUser] = useState({
     name: 'Sarah Johnson',
     email: 'sarah.johnson@email.com',
     phone: '+234 801 234 5678',
@@ -40,7 +47,9 @@ export const ProfileScreen = () => {
     joinedDate: 'March 2024',
     savedJobs: 12,
     appliedJobs: 8,
-  };
+    bio: 'Passionate frontend developer with 3+ years of experience in React and TypeScript.',
+    skills: ['React', 'TypeScript', 'JavaScript', 'CSS', 'Node.js', 'Git'],
+  });
 
   const handleVIPUpgrade = () => {
     toast({
@@ -93,7 +102,12 @@ export const ProfileScreen = () => {
               <p className="text-xs text-muted-foreground">{user.location}</p>
             </div>
             
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-8 w-8 p-0"
+              onClick={() => setShowEditProfile(true)}
+            >
               <Edit3 className="w-4 h-4" />
             </Button>
           </div>
@@ -155,21 +169,36 @@ export const ProfileScreen = () => {
         <Card className="p-4 shadow-card">
           <h3 className="font-semibold mb-3">Quick Actions</h3>
           <div className="space-y-2">
-            <Button variant="ghost" className="w-full justify-start h-12">
+            <Button 
+              variant="ghost" 
+              className="w-full justify-start h-12"
+              onClick={() => setShowSavedJobs(true)}
+            >
               <Bookmark className="w-5 h-5 mr-3" />
               <span className="flex-1 text-left">Saved Jobs</span>
               <span className="text-sm text-muted-foreground">{user.savedJobs}</span>
+              <ChevronRight className="w-4 h-4" />
             </Button>
             
-            <Button variant="ghost" className="w-full justify-start h-12">
+            <Button 
+              variant="ghost" 
+              className="w-full justify-start h-12"
+              onClick={() => setShowApplications(true)}
+            >
               <FileText className="w-5 h-5 mr-3" />
               <span className="flex-1 text-left">My Applications</span>
               <span className="text-sm text-muted-foreground">{user.appliedJobs}</span>
+              <ChevronRight className="w-4 h-4" />
             </Button>
             
-            <Button variant="ghost" className="w-full justify-start h-12">
+            <Button 
+              variant="ghost" 
+              className="w-full justify-start h-12"
+              onClick={() => setShowEditProfile(true)}
+            >
               <User className="w-5 h-5 mr-3" />
               <span className="flex-1 text-left">Edit Profile</span>
+              <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
         </Card>
@@ -241,6 +270,43 @@ export const ProfileScreen = () => {
           <LogOut className="w-5 h-5 mr-3" />
           Sign Out
         </Button>
+
+        {/* Modals and Screens */}
+        <ProfileEditModal
+          isOpen={showEditProfile}
+          onClose={() => setShowEditProfile(false)}
+          user={user}
+          onSave={(updatedUser) => setUser(updatedUser)}
+        />
+        
+        {/* Conditional Screen Rendering */}
+        {showSavedJobs && (
+          <div className="fixed inset-0 bg-background z-50">
+            <SavedJobsScreen />
+            <Button
+              className="absolute top-4 right-4 z-10"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowSavedJobs(false)}
+            >
+              Back
+            </Button>
+          </div>
+        )}
+        
+        {showApplications && (
+          <div className="fixed inset-0 bg-background z-50">
+            <ApplicationsScreen />
+            <Button
+              className="absolute top-4 right-4 z-10"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowApplications(false)}
+            >
+              Back
+            </Button>
+          </div>
+        )}
       </div>
     </MobileLayout>
   );
