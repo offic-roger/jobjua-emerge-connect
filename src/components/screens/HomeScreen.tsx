@@ -8,51 +8,85 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 
-// Mock job data
+// Mock job data with enhanced realistic data
 const mockJobs = [
   {
     id: '1',
-    title: 'Frontend Developer',
-    company: 'TechCorp Ltd',
-    salary: '₦150,000/month',
-    location: 'Lagos, Nigeria',
+    title: 'Senior Software Engineer',
+    company: 'TechCorp Solutions',
+    salary: 'KSh 250,000/month',
+    location: 'Nairobi, Kenya',
     time: '2h ago',
     type: 'full-time' as const,
     isVip: false,
     isSaved: false,
+    isUrgent: false,
+    tags: ['React', 'Node.js', 'TypeScript', 'AWS']
   },
   {
     id: '2',
     title: 'Digital Marketing Manager',
-    company: 'StartupHub',
-    salary: '₦200,000/month',
-    location: 'Abuja, Nigeria',
+    company: 'StartupHub Africa',
+    salary: '₦320,000/month',
+    location: 'Lagos, Nigeria', 
     time: '4h ago',
     type: 'remote' as const,
     isVip: true,
     isSaved: true,
+    isUrgent: true,
+    tags: ['Digital Marketing', 'SEO', 'Analytics', 'Social Media']
   },
   {
     id: '3',
     title: 'Sales Representative',
-    company: 'RetailPlus',
-    salary: '₦80,000/month',
-    location: 'Port Harcourt',
+    company: 'RetailPlus Kenya',
+    salary: 'KSh 75,000/month',
+    location: 'Mombasa, Kenya',
     time: '6h ago',
     type: 'full-time' as const,
     isVip: false,
     isSaved: false,
+    isUrgent: true,
+    tags: ['Sales', 'Customer Relations', 'CRM']
   },
   {
     id: '4',
-    title: 'Graphic Designer',
-    company: 'Creative Studios',
-    salary: '₦120,000/month',
-    location: 'Kano, Nigeria',
+    title: 'Mobile App Developer',
+    company: 'AppMakers Ltd',
+    salary: 'GHS 8,500/month',
+    location: 'Accra, Ghana',
     time: '1d ago',
     type: 'contract' as const,
     isVip: true,
     isSaved: false,
+    isUrgent: false,
+    tags: ['React Native', 'Flutter', 'iOS', 'Android']
+  },
+  {
+    id: '5',
+    title: 'UX/UI Designer',
+    company: 'DesignStudio Africa',
+    salary: 'RWF 650,000/month',
+    location: 'Kigali, Rwanda',
+    time: '2d ago',
+    type: 'full-time' as const,
+    isVip: false,
+    isSaved: true,
+    isUrgent: false,
+    tags: ['Figma', 'User Research', 'Prototyping']
+  },
+  {
+    id: '6',
+    title: 'Data Analyst',
+    company: 'DataFlow Inc',
+    salary: 'R45,000/month',
+    location: 'Cape Town, SA',
+    time: '3d ago',
+    type: 'remote' as const,
+    isVip: true,
+    isSaved: false,
+    isUrgent: false,
+    tags: ['Python', 'SQL', 'Tableau', 'Power BI']
   },
 ];
 
@@ -197,15 +231,19 @@ export const HomeScreen = () => {
               <JobCardSkeleton key={i} />
             ))
           ) : (
-            filteredJobs.map((job) => (
-              <JobCard
+            filteredJobs.map((job, index) => (
+              <div
                 key={job.id}
-                job={job}
-                onSave={() => handleSaveJob(job.id)}
-                onArchive={() => handleArchiveJob(job.id)}
-                onQuickPreview={() => handleQuickPreview(job.id)}
                 className="animate-fade-in"
-              />
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
+                <JobCard
+                  job={job}
+                  onSave={(job) => handleSaveJob(job.id)}
+                  onArchive={(job) => handleArchiveJob(job.id)}
+                  onClick={() => handleQuickPreview(job.id)}
+                />
+              </div>
             ))
           )}
         </div>
