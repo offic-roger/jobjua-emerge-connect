@@ -63,17 +63,27 @@ export const AgentManagement = ({ userRole }: AgentManagementProps) => {
 
   const fetchAgents = async () => {
     try {
-      // Get users with agent role
+      // Get users with agent role and their profiles
       const { data: agentRoles, error: rolesError } = await supabase
         .from('user_roles')
-        .select(`
-          user_id,
-          assigned_at,
-          profiles!inner(full_name, phone_number)
-        `)
+        .select('user_id, assigned_at')
         .eq('role', 'agent');
 
       if (rolesError) throw rolesError;
+
+      if (!agentRoles || agentRoles.length === 0) {
+        setAgents([]);
+        return;
+      }
+
+      // Get profiles for agent users
+      const agentUserIds = agentRoles.map(role => role.user_id);
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, phone_number')
+        .in('user_id', agentUserIds);
+
+      if (profilesError) throw profilesError;
 
       // Get auth users
       const { data: { users: authUsers }, error: authError } = await supabase.auth.admin.listUsers();
@@ -90,22 +100,23 @@ export const AgentManagement = ({ userRole }: AgentManagementProps) => {
       if (regionsError) throw regionsError;
 
       // Combine data
-      const combinedAgents = agentRoles?.map(agent => {
-        const authUser = authUsers?.find(u => u.id === agent.user_id);
-        const agentRegions = regionsData?.filter(r => r.agent_id === agent.user_id).map(r => r.region_name) || [];
+      const combinedAgents = agentRoles.map(role => {
+        const profile = profilesData?.find(p => p.user_id === role.user_id);
+        const authUser = authUsers?.find((u: any) => u.id === role.user_id);
+        const agentRegions = regionsData?.filter(r => r.agent_id === role.user_id).map(r => r.region_name) || [];
         
         return {
-          id: agent.user_id,
-          user_id: agent.user_id,
+          id: role.user_id,
+          user_id: role.user_id,
           email: authUser?.email || '',
-          full_name: agent.profiles?.full_name || 'No name',
-          phone_number: agent.profiles?.phone_number || '',
-          assigned_at: agent.assigned_at,
+          full_name: profile?.full_name || 'No name',
+          phone_number: profile?.phone_number || '',
+          assigned_at: role.assigned_at,
           regions: agentRegions,
           job_count: Math.floor(Math.random() * 50), // Mock data
           verified_jobs: Math.floor(Math.random() * 30) // Mock data
         };
-      }) || [];
+      });
 
       setAgents(combinedAgents);
     } catch (error) {
@@ -139,7 +150,7 @@ export const AgentManagement = ({ userRole }: AgentManagementProps) => {
       
       if (usersError) throw usersError;
       
-      const user = users.find(u => u.email === newAgentEmail);
+      const user = users?.find((u: any) => u.email === newAgentEmail);
       if (!user) {
         toast({
           title: "Error",

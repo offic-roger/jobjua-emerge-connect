@@ -56,14 +56,25 @@ export const UserManagement = ({ userRole }: UserManagementProps) => {
 
   const fetchUsers = async () => {
     try {
-      // First get profiles with auth user data
+      // Get user roles for regular users
+      const { data: userRoles, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'user');
+
+      if (rolesError) throw rolesError;
+
+      if (!userRoles || userRoles.length === 0) {
+        setUsers([]);
+        return;
+      }
+
+      // Get profiles for user role holders
+      const userIds = userRoles.map(role => role.user_id);
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
-        .select(`
-          *,
-          user_roles!inner(role)
-        `)
-        .eq('user_roles.role', 'user');
+        .select('*')
+        .in('user_id', userIds);
 
       if (profilesError) throw profilesError;
 
@@ -76,7 +87,7 @@ export const UserManagement = ({ userRole }: UserManagementProps) => {
 
       // Combine profile and auth data
       const combinedUsers = profilesData?.map(profile => {
-        const authUser = authUsers?.find(u => u.id === profile.user_id);
+        const authUser = authUsers?.find((u: any) => u.id === profile.user_id);
         return {
           ...profile,
           email: authUser?.email,

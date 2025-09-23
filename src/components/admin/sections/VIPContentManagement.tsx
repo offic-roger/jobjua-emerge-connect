@@ -35,11 +35,12 @@ interface VIPContent {
   id: string;
   title: string;
   content: string;
-  content_type: 'tip' | 'discount' | 'motivation';
-  image_url: string;
+  content_type: string;
+  image_url: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  created_by: string;
 }
 
 export const VIPContentManagement = ({ userRole }: VIPContentManagementProps) => {
@@ -56,7 +57,7 @@ export const VIPContentManagement = ({ userRole }: VIPContentManagementProps) =>
   const [formData, setFormData] = useState({
     title: '',
     content: '',
-    content_type: 'tip' as 'tip' | 'discount' | 'motivation',
+    content_type: 'tip',
     image_url: '',
     is_active: true
   });
