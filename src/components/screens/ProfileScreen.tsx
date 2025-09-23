@@ -24,7 +24,10 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
+import { AuthModal } from '@/components/AuthModal';
 
 export const ProfileScreen = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -33,24 +36,40 @@ export const ProfileScreen = () => {
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [showSavedJobs, setShowSavedJobs] = useState(false);
   const [showApplications, setShowApplications] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const { toast } = useToast();
+  const { user, userProfile, signOut, isVip } = useAuth();
 
-  // Mock user data
-  const [user, setUser] = useState({
-    name: 'Sarah Johnson',
-    email: 'sarah.johnson@email.com',
-    phone: '+234 801 234 5678',
-    location: 'Lagos, Nigeria',
-    jobTitle: 'Frontend Developer',
-    company: 'TechCorp Ltd',
+  // User data from auth context or mock for guest
+  const displayUser = user ? {
+    name: userProfile?.full_name || user.email?.split('@')[0] || "User",
+    email: user.email || "",
+    phone: userProfile?.phone_number || "",
+    location: userProfile?.location || "Nigeria",
+    jobTitle: userProfile?.job_title || "Job Seeker",
+    company: userProfile?.company || "",
+    isVIP: isVip,
+    profileCompletion: userProfile ? 85 : 20,
+    joinedDate: new Date(user.created_at).toLocaleDateString() || 'Recently',
+    savedJobs: 12, // TODO: Get from saved jobs table
+    appliedJobs: 8, // TODO: Get from applications table
+    bio: userProfile?.bio || 'Welcome to JobJua!',
+    skills: userProfile?.skills || [],
+  } : {
+    name: 'Guest User',
+    email: '',
+    phone: '',
+    location: '',
+    jobTitle: '',
+    company: '',
     isVIP: false,
-    profileCompletion: 85,
-    joinedDate: 'March 2024',
-    savedJobs: 12,
-    appliedJobs: 8,
-    bio: 'Passionate frontend developer with 3+ years of experience in React and TypeScript.',
-    skills: ['React', 'TypeScript', 'JavaScript', 'CSS', 'Node.js', 'Git'],
-  });
+    profileCompletion: 0,
+    joinedDate: '',
+    savedJobs: 0,
+    appliedJobs: 0,
+    bio: '',
+    skills: [],
+  };
 
   const handleVIPUpgrade = () => {
     toast({
@@ -62,6 +81,14 @@ export const ProfileScreen = () => {
   const handleAdminAccess = () => {
     // Navigate to admin panel
     window.location.href = '/admin';
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+  };
+
+  const handleSignIn = () => {
+    setShowAuthModal(true);
   };
 
   const handleSettingToggle = (setting: string, value: boolean) => {
@@ -89,125 +116,148 @@ export const ProfileScreen = () => {
       <div className="space-y-6">
         {/* Profile Header */}
         <Card className="p-6 shadow-card">
-          <div className="flex items-center gap-4 mb-4">
-            <Avatar className="w-16 h-16">
-              <AvatarImage src="/api/placeholder/64/64" />
-              <AvatarFallback className="text-lg font-semibold gradient-primary text-primary-foreground">
-                {user.name.split(' ').map(n => n[0]).join('')}
-              </AvatarFallback>
-            </Avatar>
-            
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <h2 className="text-lg font-bold">{user.name}</h2>
-                {user.isVIP && (
-                  <Crown className="w-5 h-5 text-secondary" />
-                )}
-              </div>
-              <p className="text-sm text-muted-foreground">{user.jobTitle}</p>
-              <p className="text-xs text-muted-foreground">{user.location}</p>
-            </div>
-            
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="h-8 w-8 p-0"
-              onClick={() => setShowEditProfile(true)}
-            >
-              <Edit3 className="w-4 h-4" />
-            </Button>
-          </div>
-
-          {/* Profile Completion */}
-          <div className="mb-4">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-sm font-medium">Profile Completion</span>
-              <span className="text-sm text-muted-foreground">{user.profileCompletion}%</span>
-            </div>
-            <div className="w-full bg-muted rounded-full h-2">
-              <div 
-                className="gradient-primary h-2 rounded-full transition-all duration-300"
-                style={{ width: `${user.profileCompletion}%` }}
-              />
-            </div>
-          </div>
-
-          {/* VIP Status */}
-          {!user.isVIP && (
-            <div className="gradient-primary rounded-lg p-4 text-primary-foreground">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-semibold">Upgrade to VIP</h3>
-                  <p className="text-xs text-primary-foreground/80">
-                    Get access to premium jobs
-                  </p>
+          {user ? (
+            <>
+              <div className="flex items-center gap-4 mb-4">
+                <Avatar className="w-16 h-16">
+                  <AvatarImage src={userProfile?.avatar_url} />
+                  <AvatarFallback className="text-lg font-semibold gradient-primary text-primary-foreground">
+                    {displayUser.name.split(' ').map(n => n[0]).join('')}
+                  </AvatarFallback>
+                </Avatar>
+                
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h2 className="text-lg font-bold">{displayUser.name}</h2>
+                    {displayUser.isVIP && (
+                      <Badge className="gradient-primary text-primary-foreground text-xs">
+                        VIP
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground">{displayUser.jobTitle}</p>
+                  <p className="text-xs text-muted-foreground">{displayUser.location}</p>
                 </div>
+                
                 <Button 
-                  onClick={handleVIPUpgrade}
-                  className="bg-primary-foreground text-primary hover:bg-primary-foreground/90"
-                  size="sm"
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-8 w-8 p-0"
+                  onClick={() => setShowEditProfile(true)}
                 >
-                  Upgrade
+                  <Edit3 className="w-4 h-4" />
                 </Button>
               </div>
+
+              {/* Profile Completion */}
+              <div className="mb-4">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-medium">Profile Completion</span>
+                  <span className="text-sm text-muted-foreground">{displayUser.profileCompletion}%</span>
+                </div>
+                <div className="w-full bg-muted rounded-full h-2">
+                  <div 
+                    className="gradient-primary h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${displayUser.profileCompletion}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* VIP Status */}
+              {!displayUser.isVIP && (
+                <div className="gradient-primary rounded-lg p-4 text-primary-foreground">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold">Upgrade to VIP</h3>
+                      <p className="text-xs text-primary-foreground/80">
+                        Get access to premium jobs
+                      </p>
+                    </div>
+                    <Button 
+                      onClick={handleVIPUpgrade}
+                      className="bg-primary-foreground text-primary hover:bg-primary-foreground/90"
+                      size="sm"
+                    >
+                      Upgrade
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-center py-6">
+              <div className="w-16 h-16 gradient-primary rounded-full flex items-center justify-center mx-auto mb-4">
+                <User className="w-8 h-8 text-primary-foreground" />
+              </div>
+              <h2 className="text-xl font-bold mb-2">Welcome to JobJua</h2>
+              <p className="text-muted-foreground text-sm mb-4">
+                Sign in to access personalized job recommendations and save your favorites
+              </p>
+              <Button onClick={handleSignIn} className="gradient-primary">
+                Sign In / Create Account
+              </Button>
             </div>
           )}
         </Card>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 gap-4">
-          <Card className="p-4 text-center shadow-card">
-            <div className="text-2xl font-bold text-primary mb-1">
-              {user.savedJobs}
-            </div>
-            <div className="text-sm text-muted-foreground">Saved Jobs</div>
-          </Card>
-          
-          <Card className="p-4 text-center shadow-card">
-            <div className="text-2xl font-bold text-secondary mb-1">
-              {user.appliedJobs}
-            </div>
-            <div className="text-sm text-muted-foreground">Applications</div>
-          </Card>
-        </div>
+        {user && (
+          <div className="grid grid-cols-2 gap-4">
+            <Card className="p-4 text-center shadow-card">
+              <div className="text-2xl font-bold text-primary mb-1">
+                {displayUser.savedJobs}
+              </div>
+              <div className="text-sm text-muted-foreground">Saved Jobs</div>
+            </Card>
+            
+            <Card className="p-4 text-center shadow-card">
+              <div className="text-2xl font-bold text-secondary mb-1">
+                {displayUser.appliedJobs}
+              </div>
+              <div className="text-sm text-muted-foreground">Applications</div>
+            </Card>
+          </div>
+        )}
 
         {/* Quick Actions */}
-        <Card className="p-4 shadow-card">
-          <h3 className="font-semibold mb-3">Quick Actions</h3>
-          <div className="space-y-2">
-            <Button 
-              variant="ghost" 
-              className="w-full justify-start h-12"
-              onClick={() => setShowSavedJobs(true)}
-            >
-              <Bookmark className="w-5 h-5 mr-3" />
-              <span className="flex-1 text-left">Saved Jobs</span>
-              <span className="text-sm text-muted-foreground">{user.savedJobs}</span>
-              <ChevronRight className="w-4 h-4" />
-            </Button>
-            
-            <Button 
-              variant="ghost" 
-              className="w-full justify-start h-12"
-              onClick={() => setShowApplications(true)}
-            >
-              <FileText className="w-5 h-5 mr-3" />
-              <span className="flex-1 text-left">My Applications</span>
-              <span className="text-sm text-muted-foreground">{user.appliedJobs}</span>
-              <ChevronRight className="w-4 h-4" />
-            </Button>
-            
-            <Button 
-              variant="ghost" 
-              className="w-full justify-start h-12"
-              onClick={() => setShowEditProfile(true)}
-            >
-              <User className="w-5 h-5 mr-3" />
-              <span className="flex-1 text-left">Edit Profile</span>
-              <ChevronRight className="w-4 h-4" />
-            </Button>
-          </div>
-        </Card>
+        {user && (
+          <Card className="p-4 shadow-card">
+            <h3 className="font-semibold mb-3">Quick Actions</h3>
+            <div className="space-y-2">
+              <Button 
+                variant="ghost" 
+                className="w-full justify-start h-12"
+                onClick={() => setShowSavedJobs(true)}
+              >
+                <Bookmark className="w-5 h-5 mr-3" />
+                <span className="flex-1 text-left">Saved Jobs</span>
+                <span className="text-sm text-muted-foreground">{displayUser.savedJobs}</span>
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+              
+              <Button 
+                variant="ghost" 
+                className="w-full justify-start h-12"
+                onClick={() => setShowApplications(true)}
+              >
+                <FileText className="w-5 h-5 mr-3" />
+                <span className="flex-1 text-left">My Applications</span>
+                <span className="text-sm text-muted-foreground">{displayUser.appliedJobs}</span>
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+              
+              <Button 
+                variant="ghost" 
+                className="w-full justify-start h-12"
+                onClick={() => setShowEditProfile(true)}
+              >
+                <User className="w-5 h-5 mr-3" />
+                <span className="flex-1 text-left">Edit Profile</span>
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+          </Card>
+        )}
 
         {/* Settings */}
         <Card className="p-4 shadow-card">
@@ -284,21 +334,43 @@ export const ProfileScreen = () => {
           </div>
         </Card>
 
-        {/* Logout */}
-        <Button 
-          variant="outline" 
-          className="w-full justify-start text-destructive border-destructive/20 hover:bg-destructive hover:text-destructive-foreground"
-        >
-          <LogOut className="w-5 h-5 mr-3" />
-          Sign Out
-        </Button>
+        {/* Sign Out / Sign In */}
+        {user ? (
+          <Button 
+            variant="outline" 
+            className="w-full justify-start text-destructive border-destructive/20 hover:bg-destructive hover:text-destructive-foreground"
+            onClick={handleSignOut}
+          >
+            <LogOut className="w-5 h-5 mr-3" />
+            Sign Out
+          </Button>
+        ) : (
+          <Button 
+            onClick={handleSignIn}
+            className="w-full gradient-primary h-12"
+          >
+            <User className="w-5 h-5 mr-3" />
+            Sign In to JobJua
+          </Button>
+        )}
 
         {/* Modals and Screens */}
-        <ProfileEditModal
-          isOpen={showEditProfile}
-          onClose={() => setShowEditProfile(false)}
-          user={user}
-          onSave={(updatedUser) => setUser(updatedUser)}
+        {user && (
+          <ProfileEditModal
+            isOpen={showEditProfile}
+            onClose={() => setShowEditProfile(false)}
+            user={displayUser}
+            onSave={() => {
+              // Refresh user profile data
+              toast({ title: "Profile updated successfully!" });
+              setShowEditProfile(false);
+            }}
+          />
+        )}
+        
+        <AuthModal 
+          isOpen={showAuthModal} 
+          onClose={() => setShowAuthModal(false)} 
         />
         
         {/* Conditional Screen Rendering */}

@@ -1,7 +1,13 @@
+import { useState } from 'react';
 import { Lock, Crown, Zap, Shield, ArrowRight } from 'lucide-react';
 import { MobileLayout } from '@/components/MobileLayout';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import vipIllustration from '@/assets/vip-room-illustration.jpg';
 
 interface VIPRoom {
@@ -45,6 +51,83 @@ const vipRooms: VIPRoom[] = [
 ];
 
 export const VIPRoomsScreen = () => {
+  const { user, isVip } = useAuth();
+  const { toast } = useToast();
+
+  // Fetch VIP content from Supabase
+  const { data: vipContent = [] } = useQuery({
+    queryKey: ['vip-content'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('vip_content')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('Error fetching VIP content:', error);
+        return [];
+      }
+      
+      return data;
+    },
+  });
+
+  const handleVipUpgrade = async () => {
+    if (!user) {
+      toast({
+        title: "Sign in required",
+        description: "Please sign in to upgrade to VIP",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Create VIP subscription record
+    try {
+      const { error } = await supabase
+        .from('vip_subscriptions')
+        .insert({
+          user_id: user.id,
+          plan_name: 'VIP Monthly',
+          amount: 2500,
+          payment_method: 'mpesa',
+          status: 'pending',
+          starts_at: new Date().toISOString(),
+          expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "VIP Upgrade Initiated",
+        description: "Redirecting to payment...",
+      });
+    } catch (error) {
+      console.error('VIP upgrade error:', error);
+      toast({
+        title: "Upgrade failed",
+        description: "Failed to initiate VIP upgrade. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRoomAccess = (roomId: string) => {
+    if (!isVip) {
+      toast({
+        title: "VIP Access Required",
+        description: "Upgrade to VIP to access exclusive rooms",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    toast({
+      title: "Accessing VIP Room",
+      description: "Loading exclusive content...",
+    });
+  };
   const headerContent = (
     <div className="text-center">
       <h1 className="text-xl font-bold">VIP Rooms</h1>
@@ -96,8 +179,10 @@ export const VIPRoomsScreen = () => {
           <Button 
             className="w-full bg-primary-foreground text-primary hover:bg-primary-foreground/90 font-semibold"
             size="lg"
+            onClick={handleVipUpgrade}
+            disabled={isVip}
           >
-            Unlock VIP Access - ₦2,500/month
+            {isVip ? 'VIP Active' : 'Unlock VIP Access - ₦2,500/month'}
           </Button>
         </Card>
 
@@ -112,6 +197,7 @@ export const VIPRoomsScreen = () => {
               <Card 
                 key={room.id}
                 className="p-4 shadow-card hover:shadow-elevated transition-smooth cursor-pointer"
+                onClick={() => handleRoomAccess(room.id)}
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3 flex-1">
@@ -149,13 +235,16 @@ export const VIPRoomsScreen = () => {
                   ))}
                 </div>
                 
-                {room.isLocked && (
+                {room.isLocked && !isVip && (
                   <div className="bg-muted/50 backdrop-blur-sm rounded-lg p-3 text-center">
                     <Lock className="w-6 h-6 text-muted-foreground mx-auto mb-2" />
                     <p className="text-sm text-muted-foreground mb-2">
                       VIP membership required
                     </p>
-                    <Button size="sm" variant="outline" className="w-full">
+                    <Button size="sm" variant="outline" className="w-full" onClick={(e) => {
+                      e.stopPropagation();
+                      handleVipUpgrade();
+                    }}>
                       Unlock Room
                     </Button>
                   </div>

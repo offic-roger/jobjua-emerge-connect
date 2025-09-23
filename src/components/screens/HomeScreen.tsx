@@ -7,6 +7,8 @@ import { FilterModal, JobFilters } from '@/components/FilterModal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 
 // Mock job data with enhanced realistic data
 const mockJobs = [
@@ -91,10 +93,8 @@ const mockJobs = [
 ];
 
 export const HomeScreen = () => {
-  const [jobs, setJobs] = useState(mockJobs);
-  const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedJob, setSelectedJob] = useState<typeof mockJobs[0] | null>(null);
+  const [selectedJob, setSelectedJob] = useState<any>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [activeFilters, setActiveFilters] = useState<JobFilters>({
     locations: [],
@@ -106,32 +106,87 @@ export const HomeScreen = () => {
   });
   const { toast } = useToast();
 
+  // Fetch jobs from Supabase
+  const { data: jobs = [], isLoading, refetch } = useQuery({
+    queryKey: ['jobs', searchQuery, activeFilters],
+    queryFn: async () => {
+      let query = supabase
+        .from('jobs')
+        .select('*')
+        .eq('status', 'approved')
+        .order('created_at', { ascending: false });
+
+      // Apply search filter
+      if (searchQuery.trim()) {
+        query = query.or(`title.ilike.%${searchQuery}%,company_name.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`);
+      }
+
+      // Apply location filter
+      if (activeFilters.locations.length > 0) {
+        query = query.in('location', activeFilters.locations);
+      }
+
+      // Apply VIP filter
+      if (activeFilters.isVipOnly) {
+        query = query.eq('category', 'vip');
+      }
+
+      const { data, error } = await query.limit(50);
+      
+      if (error) {
+        console.error('Error fetching jobs:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load jobs. Please try again.",
+          variant: "destructive",
+        });
+        return [];
+      }
+
+      // Transform data to match expected format
+      return data.map(job => ({
+        id: job.id,
+        title: job.title,
+        company: job.company_name || 'Company Name',
+        salary: job.salary_min && job.salary_max 
+          ? `₦${job.salary_min.toLocaleString()} - ₦${job.salary_max.toLocaleString()}/month`
+          : 'Salary negotiable',
+        location: job.location,
+        time: new Date(job.created_at).toLocaleDateString(),
+        type: 'full-time' as const,
+        isVip: job.category === 'vip',
+        isSaved: false,
+        isUrgent: job.expires_at && new Date(job.expires_at) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        tags: job.requirements?.slice(0, 4) || [],
+        description: job.description,
+        contactEmail: job.contact_email,
+        contactPhone: job.contact_phone,
+        benefits: job.benefits,
+        companyLogoUrl: job.company_logo_url,
+      }));
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
   const handleRefresh = async () => {
-    setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
-      toast({
-        title: "Jobs Updated",
-        description: "Found new opportunities for you!",
-      });
-    }, 1500);
+    await refetch();
+    toast({
+      title: "Jobs Updated",
+      description: "Found new opportunities for you!",
+    });
   };
 
-  const handleSaveJob = (jobId: string) => {
-    setJobs(prev => prev.map(job => 
-      job.id === jobId ? { ...job, isSaved: !job.isSaved } : job
-    ));
-    
+  const handleSaveJob = async (jobId: string) => {
+    // TODO: Implement save job functionality with user authentication
     const job = jobs.find(j => j.id === jobId);
     toast({
-      title: job?.isSaved ? "Job Removed" : "Job Saved",
-      description: job?.isSaved ? "Removed from saved jobs" : "Added to your saved jobs",
+      title: "Job Saved",
+      description: "Added to your saved jobs",
     });
   };
 
   const handleArchiveJob = (jobId: string) => {
-    setJobs(prev => prev.filter(job => job.id !== jobId));
+    // TODO: Implement archive job functionality
     toast({
       title: "Job Archived",
       description: "You won't see this job again",
@@ -147,31 +202,11 @@ export const HomeScreen = () => {
 
   const handleApplyFilters = (filters: JobFilters) => {
     setActiveFilters(filters);
-    // In a real app, this would trigger an API call with the filters
     toast({
       title: "Filters Applied",
       description: "Job listings have been updated",
     });
   };
-
-  const filteredJobs = jobs.filter(job => {
-    // Search query filter
-    const matchesSearch = job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         job.company.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    // Location filter
-    const matchesLocation = activeFilters.locations.length === 0 ||
-                           activeFilters.locations.includes(job.location);
-    
-    // Job type filter
-    const matchesJobType = activeFilters.jobTypes.length === 0 ||
-                          activeFilters.jobTypes.includes(job.type);
-    
-    // VIP filter
-    const matchesVIP = !activeFilters.isVipOnly || job.isVip;
-    
-    return matchesSearch && matchesLocation && matchesJobType && matchesVIP;
-  });
 
   const headerContent = (
     <div className="space-y-4">
@@ -218,7 +253,7 @@ export const HomeScreen = () => {
       <div className="space-y-4">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">
-            {filteredJobs.length} jobs found
+            {jobs.length} jobs found
           </h2>
           <span className="text-sm text-muted-foreground">
             Swipe to save/archive
@@ -231,7 +266,7 @@ export const HomeScreen = () => {
               <JobCardSkeleton key={i} />
             ))
           ) : (
-            filteredJobs.map((job, index) => (
+            jobs.map((job, index) => (
               <div
                 key={job.id}
                 className="animate-fade-in"
@@ -248,7 +283,7 @@ export const HomeScreen = () => {
           )}
         </div>
 
-        {filteredJobs.length === 0 && !isLoading && (
+        {jobs.length === 0 && !isLoading && (
           <div className="text-center py-12">
             <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
               <Search className="w-8 h-8 text-muted-foreground" />
