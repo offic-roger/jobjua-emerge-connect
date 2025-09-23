@@ -8,32 +8,57 @@ import { useToast } from '@/hooks/use-toast';
 import { Eye, EyeOff, UserCheck } from 'lucide-react';
 
 export const AdminLogin = () => {
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState('rogersmwangomale@gmail.com');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
   const { toast } = useToast();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        toast({
-          title: "Login Failed",
-          description: error.message,
-          variant: "destructive"
+      if (isSignUp) {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/admin`
+          }
         });
+
+        if (error) {
+          toast({
+            title: "Signup Failed",
+            description: error.message,
+            variant: "destructive"
+          });
+        } else {
+          toast({
+            title: "Account Created!",
+            description: "Admin account created successfully. You can now sign in.",
+          });
+          setIsSignUp(false);
+        }
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (error) {
+          toast({
+            title: "Login Failed",
+            description: error.message,
+            variant: "destructive"
+          });
+        }
       }
     } catch (error) {
       toast({
-        title: "Login Failed",
+        title: isSignUp ? "Signup Failed" : "Login Failed",
         description: "An unexpected error occurred",
         variant: "destructive"
       });
@@ -61,13 +86,16 @@ export const AdminLogin = () => {
         {/* Login Form */}
         <Card className="shadow-elevated border-0">
           <CardHeader>
-            <CardTitle>Sign In</CardTitle>
+            <CardTitle>{isSignUp ? 'Create Admin Account' : 'Sign In'}</CardTitle>
             <CardDescription>
-              Enter your admin credentials to access the dashboard
+              {isSignUp 
+                ? 'Create your admin account to access the dashboard'
+                : 'Enter your admin credentials to access the dashboard'
+              }
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleLogin} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -114,8 +142,24 @@ export const AdminLogin = () => {
                 className="w-full gradient-primary hover:opacity-90 transition-smooth"
                 disabled={loading}
               >
-                {loading ? 'Signing in...' : 'Sign In'}
+                {loading 
+                  ? (isSignUp ? 'Creating Account...' : 'Signing in...')
+                  : (isSignUp ? 'Create Admin Account' : 'Sign In')
+                }
               </Button>
+
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => setIsSignUp(!isSignUp)}
+                  className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                >
+                  {isSignUp 
+                    ? 'Already have an account? Sign in'
+                    : 'Need to create admin account? Sign up'
+                  }
+                </button>
+              </div>
             </form>
           </CardContent>
         </Card>
