@@ -13,7 +13,8 @@ import {
   MessageSquare,
   HelpCircle,
   LogOut,
-  ChevronRight
+  ChevronRight,
+  Shield
 } from 'lucide-react';
 import { ProfileEditModal } from '@/components/ProfileEditModal';
 import { SavedJobsScreen } from '@/components/SavedJobsScreen';
@@ -56,6 +57,11 @@ export const ProfileScreen = () => {
       title: "VIP Upgrade",
       description: "Redirecting to subscription page...",
     });
+  };
+
+  const handleAdminAccess = () => {
+    // Navigate to admin panel
+    window.location.href = '/admin';
   };
 
   const handleSettingToggle = (setting: string, value: boolean) => {
@@ -258,6 +264,22 @@ export const ProfileScreen = () => {
             <Button variant="ghost" className="w-full justify-start h-12">
               <MessageSquare className="w-5 h-5 mr-3 text-muted-foreground" />
               <span>Contact Support</span>
+            </Button>
+          </div>
+        </Card>
+
+        {/* Admin Access */}
+        <Card className="p-4 shadow-card">
+          <h3 className="font-semibold mb-3">Administration</h3>
+          <div className="space-y-2">
+            <Button 
+              variant="ghost" 
+              className="w-full justify-start h-12"
+              onClick={handleAdminAccess}
+            >
+              <Shield className="w-5 h-5 mr-3 text-muted-foreground" />
+              <span className="flex-1 text-left">Admin Dashboard</span>
+              <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
         </Card>
