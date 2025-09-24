@@ -51,6 +51,20 @@ export const JobManagement = ({ userRole }: JobManagementProps) => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [formData, setFormData] = useState({
+    title: '',
+    company_name: '',
+    description: '',
+    location: '',
+    category: 'normal' as 'normal' | 'vip' | 'quick_gig' | 'verified',
+    salary_min: '',
+    salary_max: '',
+    contact_email: '',
+    contact_phone: '',
+    requirements: '',
+    benefits: ''
+  });
   const { toast } = useToast();
 
   useEffect(() => {
@@ -74,6 +88,76 @@ export const JobManagement = ({ userRole }: JobManagementProps) => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCreateJob = async () => {
+    if (!formData.title || !formData.description || !formData.location) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setCreating(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const jobData = {
+        title: formData.title,
+        company_name: formData.company_name,
+        description: formData.description,
+        location: formData.location,
+        category: formData.category as 'normal' | 'vip' | 'quick_gig' | 'verified',
+        salary_min: formData.salary_min ? parseFloat(formData.salary_min) : null,
+        salary_max: formData.salary_max ? parseFloat(formData.salary_max) : null,
+        contact_email: formData.contact_email,
+        contact_phone: formData.contact_phone,
+        requirements: formData.requirements ? formData.requirements.split(',').map(r => r.trim()).filter(r => r) : [],
+        benefits: formData.benefits ? formData.benefits.split(',').map(b => b.trim()).filter(b => b) : [],
+        posted_by: user?.id,
+        status: (userRole === 'admin' ? 'approved' : 'pending') as 'draft' | 'pending' | 'approved' | 'rejected' | 'expired'
+      };
+
+      const { data, error } = await supabase
+        .from('jobs')
+        .insert(jobData)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setJobs([data, ...jobs]);
+      setShowCreateDialog(false);
+      setFormData({
+        title: '',
+        company_name: '',
+        description: '',
+        location: '',
+        category: 'normal' as 'normal' | 'vip' | 'quick_gig' | 'verified',
+        salary_min: '',
+        salary_max: '',
+        contact_email: '',
+        contact_phone: '',
+        requirements: '',
+        benefits: ''
+      });
+
+      toast({
+        title: "Success",
+        description: "Job created successfully!",
+      });
+    } catch (error) {
+      console.error('Error creating job:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create job",
+        variant: "destructive"
+      });
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -202,28 +286,49 @@ export const JobManagement = ({ userRole }: JobManagementProps) => {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="title">Job Title</Label>
-                  <Input id="title" placeholder="Software Developer" />
+                  <Label htmlFor="title">Job Title *</Label>
+                  <Input 
+                    id="title" 
+                    placeholder="Software Developer"
+                    value={formData.title}
+                    onChange={(e) => setFormData({...formData, title: e.target.value})}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="company">Company Name</Label>
-                  <Input id="company" placeholder="Tech Corp" />
+                  <Input 
+                    id="company" 
+                    placeholder="Tech Corp"
+                    value={formData.company_name}
+                    onChange={(e) => setFormData({...formData, company_name: e.target.value})}
+                  />
                 </div>
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea id="description" placeholder="Job description..." className="min-h-24" />
+                <Label htmlFor="description">Description *</Label>
+                <Textarea 
+                  id="description" 
+                  placeholder="Job description..."
+                  className="min-h-24"
+                  value={formData.description}
+                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="location">Location</Label>
-                  <Input id="location" placeholder="New York, NY" />
+                  <Label htmlFor="location">Location *</Label>
+                  <Input 
+                    id="location" 
+                    placeholder="Nairobi, Kenya"
+                    value={formData.location}
+                    onChange={(e) => setFormData({...formData, location: e.target.value})}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="category">Category</Label>
-                  <Select>
+                  <Select value={formData.category} onValueChange={(value: 'normal' | 'vip' | 'quick_gig' | 'verified') => setFormData({...formData, category: value})}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
@@ -239,21 +344,79 @@ export const JobManagement = ({ userRole }: JobManagementProps) => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="salary_min">Min Salary</Label>
-                  <Input id="salary_min" type="number" placeholder="50000" />
+                  <Label htmlFor="salary_min">Min Salary (KSh)</Label>
+                  <Input 
+                    id="salary_min" 
+                    type="number" 
+                    placeholder="50000"
+                    value={formData.salary_min}
+                    onChange={(e) => setFormData({...formData, salary_min: e.target.value})}
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="salary_max">Max Salary</Label>
-                  <Input id="salary_max" type="number" placeholder="80000" />
+                  <Label htmlFor="salary_max">Max Salary (KSh)</Label>
+                  <Input 
+                    id="salary_max" 
+                    type="number" 
+                    placeholder="80000"
+                    value={formData.salary_max}
+                    onChange={(e) => setFormData({...formData, salary_max: e.target.value})}
+                  />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="contact_email">Contact Email</Label>
+                  <Input 
+                    id="contact_email" 
+                    type="email" 
+                    placeholder="hr@company.com"
+                    value={formData.contact_email}
+                    onChange={(e) => setFormData({...formData, contact_email: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="contact_phone">Contact Phone</Label>
+                  <Input 
+                    id="contact_phone" 
+                    placeholder="+254700000000"
+                    value={formData.contact_phone}
+                    onChange={(e) => setFormData({...formData, contact_phone: e.target.value})}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="requirements">Requirements (comma separated)</Label>
+                <Input 
+                  id="requirements" 
+                  placeholder="React, Node.js, TypeScript"
+                  value={formData.requirements}
+                  onChange={(e) => setFormData({...formData, requirements: e.target.value})}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="benefits">Benefits (comma separated)</Label>
+                <Input 
+                  id="benefits" 
+                  placeholder="Health insurance, Remote work, Flexible hours"
+                  value={formData.benefits}
+                  onChange={(e) => setFormData({...formData, benefits: e.target.value})}
+                />
               </div>
 
               <div className="flex justify-end space-x-2">
                 <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
                   Cancel
                 </Button>
-                <Button className="gradient-primary">
-                  Create Job
+                <Button 
+                  className="gradient-primary" 
+                  onClick={handleCreateJob}
+                  disabled={creating}
+                >
+                  {creating ? 'Creating...' : 'Create Job'}
                 </Button>
               </div>
             </div>
