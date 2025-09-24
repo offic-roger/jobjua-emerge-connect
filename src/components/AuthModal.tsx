@@ -36,7 +36,7 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
     e.preventDefault();
     setIsLoading(true);
     
-    const result = await signUp(email, password);
+    const result = await signUp(email, password, { fullName, phoneNumber });
     
     setIsLoading(false);
     if (!result.error) {

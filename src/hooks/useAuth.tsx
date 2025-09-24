@@ -8,7 +8,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<any>;
-  signUp: (email: string, password: string) => Promise<any>;
+  signUp: (email: string, password: string, userData?: { fullName?: string; phoneNumber?: string }) => Promise<any>;
   signOut: () => Promise<void>;
   isVip: boolean;
   userProfile: any;
@@ -78,7 +78,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (profile) {
         setUserProfile(profile);
-        setIsVip(profile.is_vip && new Date(profile.vip_expires_at) > new Date());
+        // Check VIP status: is_vip is true AND (no expiry date OR expiry date is in the future)
+        const isVipActive = profile.is_vip && (
+          !profile.vip_expires_at || new Date(profile.vip_expires_at) > new Date()
+        );
+        setIsVip(isVipActive);
       }
     } catch (error) {
       console.error('Error fetching user profile:', error);
@@ -113,11 +117,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  const signUp = async (email: string, password: string) => {
+  const signUp = async (email: string, password: string, userData?: { fullName?: string; phoneNumber?: string }) => {
     try {
+      const redirectUrl = `${window.location.origin}/`;
+      
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          emailRedirectTo: redirectUrl,
+          data: userData ? {
+            full_name: userData.fullName,
+            phone_number: userData.phoneNumber
+          } : undefined
+        }
       });
 
       if (error) {
