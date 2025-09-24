@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Search, Filter, RefreshCw } from 'lucide-react';
+import { Search, Filter, RefreshCw, Crown, Moon, Sun } from 'lucide-react';
 import { MobileLayout } from '@/components/MobileLayout';
 import { JobCard, JobCardSkeleton } from '@/components/JobCard';
 import { JobDetailsModal } from '@/components/JobDetailsModal';
 import { FilterModal, JobFilters } from '@/components/FilterModal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 
@@ -96,6 +100,7 @@ export const HomeScreen = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedJob, setSelectedJob] = useState<any>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const [activeFilters, setActiveFilters] = useState<JobFilters>({
     locations: [],
     salaryRange: [0, 1000000],
@@ -105,6 +110,7 @@ export const HomeScreen = () => {
     isVipOnly: false,
   });
   const { toast } = useToast();
+  const { user, isVip } = useAuth();
 
   // Fetch jobs from Supabase with real-time updates
   const { data: jobs = [], isLoading, refetch } = useQuery({
@@ -240,6 +246,58 @@ export const HomeScreen = () => {
     });
   };
 
+  const handleVIPUpgrade = async () => {
+    if (!user) {
+      toast({
+        title: "Sign in required",
+        description: "Please sign in to upgrade to VIP",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('vip_subscriptions')
+        .insert({
+          user_id: user.id,
+          plan_name: 'Monthly VIP',
+          amount: 999,
+          payment_method: 'mpesa',
+          status: 'pending'
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "VIP Upgrade",
+        description: "Your VIP subscription request has been submitted!",
+      });
+    } catch (error) {
+      console.error('Error creating VIP subscription:', error);
+      toast({
+        title: "Error",
+        description: "Failed to process VIP upgrade. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDarkModeToggle = (checked: boolean) => {
+    setIsDarkMode(checked);
+    // Apply dark mode class to document
+    if (checked) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    
+    toast({
+      title: "Theme Updated",
+      description: `Switched to ${checked ? 'dark' : 'light'} mode`,
+    });
+  };
+
   const headerContent = (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -247,15 +305,29 @@ export const HomeScreen = () => {
           <h1 className="text-xl font-bold">Good morning!</h1>
           <p className="text-primary-foreground/80 text-sm">Ready to find your dream job?</p>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 w-8 p-0 text-primary-foreground hover:bg-primary-foreground/20"
-          onClick={handleRefresh}
-          disabled={isLoading}
-        >
-          <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 text-primary-foreground hover:bg-primary-foreground/20"
+            onClick={() => handleDarkModeToggle(!isDarkMode)}
+          >
+            {isDarkMode ? (
+              <Sun className="w-4 h-4" />
+            ) : (
+              <Moon className="w-4 h-4" />
+            )}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 text-primary-foreground hover:bg-primary-foreground/20"
+            onClick={handleRefresh}
+            disabled={isLoading}
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
       </div>
 
       <div className="flex gap-2">
@@ -283,6 +355,30 @@ export const HomeScreen = () => {
   return (
     <MobileLayout headerContent={headerContent} className="p-4">
       <div className="space-y-4">
+        {/* VIP Upgrade Card */}
+        {user && !isVip && (
+          <Card className="p-4 gradient-primary text-primary-foreground shadow-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Crown className="w-6 h-6" />
+                <div>
+                  <h3 className="font-semibold">Upgrade to VIP</h3>
+                  <p className="text-xs text-primary-foreground/80">
+                    Access premium jobs & features
+                  </p>
+                </div>
+              </div>
+              <Button 
+                onClick={handleVIPUpgrade}
+                className="bg-primary-foreground text-primary hover:bg-primary-foreground/90"
+                size="sm"
+              >
+                Upgrade
+              </Button>
+            </div>
+          </Card>
+        )}
+
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">
             {jobs.length} jobs found

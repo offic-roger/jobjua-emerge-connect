@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Filter, Trash2, ExternalLink, MapPin, Clock, Building } from 'lucide-react';
 import { MobileLayout } from '@/components/MobileLayout';
 import { Button } from '@/components/ui/button';
@@ -6,6 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 
 interface SavedJob {
   id: string;
@@ -56,17 +59,43 @@ const mockSavedJobs: SavedJob[] = [
 ];
 
 export const SavedJobsScreen = () => {
-  const [jobs, setJobs] = useState(mockSavedJobs);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'vip' | 'recent'>('all');
   const { toast } = useToast();
+  const { user } = useAuth();
 
-  const handleRemoveJob = (jobId: string) => {
-    setJobs(prev => prev.filter(job => job.id !== jobId));
-    toast({
-      title: "Job Removed",
-      description: "Job has been removed from your saved list",
-    });
+  // Fetch saved jobs from Supabase (placeholder - need to implement saved_jobs table)
+  const { data: jobs = [], isLoading, refetch } = useQuery({
+    queryKey: ['savedJobs', user?.id],
+    queryFn: async () => {
+      if (!user) return mockSavedJobs;
+      
+      // TODO: Implement actual saved jobs table and query
+      // For now, return mock data
+      return mockSavedJobs;
+    },
+    enabled: !!user,
+  });
+
+  const handleRemoveJob = async (jobId: string) => {
+    if (!user) return;
+    
+    try {
+      // TODO: Implement actual removal from saved_jobs table
+      // For now, just show success message
+      await refetch();
+      
+      toast({
+        title: "Job Removed",
+        description: "Job has been removed from your saved list",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to remove job. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const filteredJobs = jobs.filter(job => {

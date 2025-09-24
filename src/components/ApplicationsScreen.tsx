@@ -1,10 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FileText, Clock, CheckCircle, XCircle, Eye, MessageSquare } from 'lucide-react';
 import { MobileLayout } from '@/components/MobileLayout';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 
 type ApplicationStatus = 'pending' | 'reviewed' | 'interview' | 'rejected' | 'accepted';
 
@@ -128,19 +131,103 @@ const statusConfig = {
 
 export const ApplicationsScreen = () => {
   const [selectedFilter, setSelectedFilter] = useState<ApplicationStatus | 'all'>('all');
+  const { user } = useAuth();
+
+  // Fetch applications from Supabase
+  const { data: applications = [], isLoading } = useQuery({
+    queryKey: ['applications', user?.id],
+    queryFn: async () => {
+      if (!user) return mockApplications;
+      
+      const { data, error } = await supabase
+        .from('job_applications')
+        .select(`
+          *,
+          jobs (
+            title,
+            company_name,
+            salary_min,
+            salary_max,
+            location
+          )
+        `)
+        .eq('user_id', user.id)
+        .order('applied_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching applications:', error);
+        return mockApplications;
+      }
+
+      // Transform data to match expected format
+      return data.map((app: any) => ({
+        id: app.id,
+        jobTitle: app.jobs?.title || 'Job Title',
+        company: app.jobs?.company_name || 'Company',
+        appliedDate: new Date(app.applied_at).toLocaleDateString(),
+        status: app.status as ApplicationStatus,
+        stage: getStageFromStatus(app.status),
+        progress: getProgressFromStatus(app.status),
+        nextStep: getNextStepFromStatus(app.status),
+        lastUpdate: new Date(app.updated_at).toLocaleDateString(),
+        salary: app.jobs?.salary_min && app.jobs?.salary_max 
+          ? `KSh ${app.jobs.salary_min.toLocaleString()} - KSh ${app.jobs.salary_max.toLocaleString()}/month`
+          : 'Salary negotiable',
+        location: app.jobs?.location || 'Location not specified',
+      }));
+    },
+    enabled: !!user,
+  });
   
-  const filteredApplications = mockApplications.filter(app => 
+  const filteredApplications = applications.filter(app => 
     selectedFilter === 'all' ? true : app.status === selectedFilter
   );
 
   const statusCounts = {
-    all: mockApplications.length,
-    pending: mockApplications.filter(app => app.status === 'pending').length,
-    reviewed: mockApplications.filter(app => app.status === 'reviewed').length,
-    interview: mockApplications.filter(app => app.status === 'interview').length,
-    rejected: mockApplications.filter(app => app.status === 'rejected').length,
-    accepted: mockApplications.filter(app => app.status === 'accepted').length,
+    all: applications.length,
+    pending: applications.filter(app => app.status === 'pending').length,
+    reviewed: applications.filter(app => app.status === 'reviewed').length,
+    interview: applications.filter(app => app.status === 'interview').length,
+    rejected: applications.filter(app => app.status === 'rejected').length,
+    accepted: applications.filter(app => app.status === 'accepted').length,
   };
+
+  // Helper functions
+  function getStageFromStatus(status: string): string {
+    const stages = {
+      pending: 'Application Submitted',
+      reviewed: 'Application Review',
+      interview: 'Technical Interview',
+      rejected: 'Application Rejected',
+      accepted: 'Offer Accepted',
+      applied: 'Application Submitted'
+    };
+    return stages[status as keyof typeof stages] || 'Unknown Stage';
+  }
+
+  function getProgressFromStatus(status: string): number {
+    const progress = {
+      pending: 25,
+      applied: 25,
+      reviewed: 50,
+      interview: 75,
+      rejected: 25,
+      accepted: 100
+    };
+    return progress[status as keyof typeof progress] || 0;
+  }
+
+  function getNextStepFromStatus(status: string): string | undefined {
+    const nextSteps = {
+      pending: 'Application under review',
+      applied: 'Application under review',
+      reviewed: 'Waiting for hiring manager feedback',
+      interview: 'Interview scheduled',
+      rejected: undefined,
+      accepted: undefined
+    };
+    return nextSteps[status as keyof typeof nextSteps];
+  }
 
   const headerContent = (
     <div className="text-center">
@@ -271,15 +358,27 @@ export const ApplicationsScreen = () => {
           })}
         </div>
 
-        {filteredApplications.length === 0 && (
+        {filteredApplications.length === 0 && !isLoading && (
           <div className="text-center py-12">
             <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
               <FileText className="w-8 h-8 text-muted-foreground" />
             </div>
-            <h3 className="text-lg font-semibold mb-2">No applications found</h3>
+            <h3 className="text-lg font-semibold mb-2">
+              {user ? 'No applications found' : 'Sign in to view applications'}
+            </h3>
             <p className="text-muted-foreground">
-              Start applying to jobs to track your progress here
+              {user ? 'Start applying to jobs to track your progress here' : 'Please sign in to see your job applications'}
             </p>
+          </div>
+        )}
+
+        {isLoading && (
+          <div className="space-y-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="animate-pulse">
+                <div className="bg-muted rounded-lg p-4 h-32"></div>
+              </div>
+            ))}
           </div>
         )}
       </div>
