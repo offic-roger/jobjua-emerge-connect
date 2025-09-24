@@ -366,6 +366,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_vip_user: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "agent" | "user"
