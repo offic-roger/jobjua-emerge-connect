@@ -64,15 +64,50 @@ export const SavedJobsScreen = () => {
   const { toast } = useToast();
   const { user } = useAuth();
 
-  // Fetch saved jobs from Supabase (placeholder - need to implement saved_jobs table)
+  // Fetch saved jobs from Supabase
   const { data: jobs = [], isLoading, refetch } = useQuery({
     queryKey: ['savedJobs', user?.id],
     queryFn: async () => {
-      if (!user) return mockSavedJobs;
+      if (!user) return [];
       
-      // TODO: Implement actual saved jobs table and query
-      // For now, return mock data
-      return mockSavedJobs;
+      const { data, error } = await supabase
+        .from('saved_jobs')
+        .select(`
+          *,
+          jobs (
+            id,
+            title,
+            company_name,
+            salary_min,
+            salary_max,
+            location,
+            category,
+            requirements,
+            created_at
+          )
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching saved jobs:', error);
+        return [];
+      }
+
+      // Transform data to match expected format
+      return data.map((savedJob: any) => ({
+        id: savedJob.job_id,
+        title: savedJob.jobs?.title || 'Job Title',
+        company: savedJob.jobs?.company_name || 'Company',
+        salary: savedJob.jobs?.salary_min && savedJob.jobs?.salary_max 
+          ? `KSh ${savedJob.jobs.salary_min.toLocaleString()} - KSh ${savedJob.jobs.salary_max.toLocaleString()}/month`
+          : 'Salary negotiable',
+        location: savedJob.jobs?.location || 'Location',
+        savedDate: new Date(savedJob.created_at).toLocaleDateString(),
+        type: 'full-time' as const,
+        isVip: savedJob.jobs?.category === 'vip',
+        tags: savedJob.jobs?.requirements?.slice(0, 3) || [],
+      }));
     },
     enabled: !!user,
   });
@@ -81,8 +116,14 @@ export const SavedJobsScreen = () => {
     if (!user) return;
     
     try {
-      // TODO: Implement actual removal from saved_jobs table
-      // For now, just show success message
+      const { error } = await supabase
+        .from('saved_jobs')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('job_id', jobId);
+
+      if (error) throw error;
+      
       await refetch();
       
       toast({
@@ -90,6 +131,7 @@ export const SavedJobsScreen = () => {
         description: "Job has been removed from your saved list",
       });
     } catch (error) {
+      console.error('Error removing saved job:', error);
       toast({
         title: "Error",
         description: "Failed to remove job. Please try again.",
@@ -228,20 +270,37 @@ export const SavedJobsScreen = () => {
           ))}
         </div>
 
-        {filteredJobs.length === 0 && (
+        {filteredJobs.length === 0 && !isLoading && (
           <div className="text-center py-12">
             <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
               <Search className="w-8 h-8 text-muted-foreground" />
             </div>
-            <h3 className="text-lg font-semibold mb-2">No saved jobs found</h3>
+            <h3 className="text-lg font-semibold mb-2">
+              {user ? 'No saved jobs found' : 'Sign in to view saved jobs'}
+            </h3>
             <p className="text-muted-foreground mb-4">
-              {searchQuery ? 'Try adjusting your search' : 'Start saving jobs you\'re interested in'}
+              {searchQuery && user
+                ? 'Try adjusting your search'
+                : user
+                ? 'Start saving jobs you\'re interested in'
+                : 'Please sign in to see your saved jobs'
+              }
             </p>
-            {searchQuery && (
+            {searchQuery && user && (
               <Button onClick={() => setSearchQuery('')}>
                 Clear search
               </Button>
             )}
+          </div>
+        )}
+
+        {isLoading && (
+          <div className="space-y-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="animate-pulse">
+                <div className="bg-muted rounded-lg p-4 h-32"></div>
+              </div>
+            ))}
           </div>
         )}
       </div>

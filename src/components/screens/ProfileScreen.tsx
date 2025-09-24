@@ -28,6 +28,8 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { AuthModal } from '@/components/AuthModal';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 export const ProfileScreen = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -40,6 +42,33 @@ export const ProfileScreen = () => {
   const { toast } = useToast();
   const { user, userProfile, signOut, isVip } = useAuth();
 
+  // Fetch real counts for saved jobs and applications
+  const { data: savedJobsCount = 0 } = useQuery({
+    queryKey: ['savedJobsCount', user?.id],
+    queryFn: async () => {
+      if (!user) return 0;
+      const { count } = await supabase
+        .from('saved_jobs')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+      return count || 0;
+    },
+    enabled: !!user,
+  });
+
+  const { data: applicationsCount = 0 } = useQuery({
+    queryKey: ['applicationsCount', user?.id],
+    queryFn: async () => {
+      if (!user) return 0;
+      const { count } = await supabase
+        .from('job_applications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+      return count || 0;
+    },
+    enabled: !!user,
+  });
+
   // User data from auth context or mock for guest
   const displayUser = user ? {
     name: userProfile?.full_name || user.email?.split('@')[0] || "User",
@@ -51,8 +80,8 @@ export const ProfileScreen = () => {
     isVIP: isVip,
     profileCompletion: userProfile ? 85 : 20,
     joinedDate: new Date(user.created_at).toLocaleDateString() || 'Recently',
-    savedJobs: 12, // TODO: Get from saved jobs table
-    appliedJobs: 8, // TODO: Get from applications table
+    savedJobs: savedJobsCount,
+    appliedJobs: applicationsCount,
     bio: userProfile?.bio || 'Welcome to JobJua!',
     skills: userProfile?.skills || [],
   } : {

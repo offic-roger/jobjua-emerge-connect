@@ -215,12 +215,47 @@ export const HomeScreen = () => {
   };
 
   const handleSaveJob = async (jobId: string) => {
-    // TODO: Implement save job functionality with user authentication
-    const job = jobs.find(j => j.id === jobId);
-    toast({
-      title: "Job Saved",
-      description: "Added to your saved jobs",
-    });
+    if (!user) {
+      toast({
+        title: "Sign in required",
+        description: "Please sign in to save jobs",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('saved_jobs')
+        .insert({
+          user_id: user.id,
+          job_id: jobId
+        });
+
+      if (error) {
+        if (error.code === '23505') { // Unique constraint violation
+          toast({
+            title: "Already Saved",
+            description: "This job is already in your saved list",
+          });
+        } else {
+          throw error;
+        }
+        return;
+      }
+
+      toast({
+        title: "Job Saved",
+        description: "Added to your saved jobs",
+      });
+    } catch (error) {
+      console.error('Error saving job:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save job. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleArchiveJob = (jobId: string) => {
