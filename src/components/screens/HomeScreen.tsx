@@ -106,7 +106,7 @@ export const HomeScreen = () => {
   });
   const { toast } = useToast();
 
-  // Fetch jobs from Supabase
+  // Fetch jobs from Supabase with real-time updates
   const { data: jobs = [], isLoading, refetch } = useQuery({
     queryKey: ['jobs', searchQuery, activeFilters],
     queryFn: async () => {
@@ -149,7 +149,7 @@ export const HomeScreen = () => {
         title: job.title,
         company: job.company_name || 'Company Name',
         salary: job.salary_min && job.salary_max 
-          ? `₦${job.salary_min.toLocaleString()} - ₦${job.salary_max.toLocaleString()}/month`
+          ? `KSh ${job.salary_min.toLocaleString()} - KSh ${job.salary_max.toLocaleString()}/month`
           : 'Salary negotiable',
         location: job.location,
         time: new Date(job.created_at).toLocaleDateString(),
@@ -165,8 +165,40 @@ export const HomeScreen = () => {
         companyLogoUrl: job.company_logo_url,
       }));
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 30 * 1000, // 30 seconds for faster updates
+    refetchInterval: 60 * 1000, // Refetch every minute
   });
+
+  // Set up real-time subscription for new jobs
+  useEffect(() => {
+    const channel = supabase
+      .channel('jobs-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'jobs',
+          filter: 'status=eq.approved'
+        },
+        (payload) => {
+          console.log('Job update received:', payload);
+          refetch(); // Refetch jobs when there's a change
+          
+          if (payload.eventType === 'INSERT') {
+            toast({
+              title: "New Job Posted!",
+              description: "Check out the latest opportunities",
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [refetch, toast]);
 
   const handleRefresh = async () => {
     await refetch();
