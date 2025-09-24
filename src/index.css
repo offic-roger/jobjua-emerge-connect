@@ -181,4 +181,46 @@
   .touch-feedback {
     @apply transition-smooth active:scale-95 active:bg-muted/50;
   }
+
+  /* Admin Panel Mobile Optimizations */
+  .admin-mobile-ready {
+    contain: layout style;
+  }
+  
+  .admin-fade-in {
+    animation: admin-fade-in 0.3s ease-out forwards;
+  }
+  
+  .admin-skeleton {
+    @apply animate-pulse bg-muted rounded;
+  }
+  
+  @keyframes admin-fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  /* Mobile Job Management Cards */
+  @media (max-width: 1024px) {
+    .mobile-job-card {
+      @apply p-4 border rounded-lg space-y-3 hover:bg-muted/20 transition-colors bg-card;
+      contain: layout style;
+    }
+    
+    .mobile-job-card:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-card);
+    }
+  }
+  
+  /* Performance optimizations */
+  .animate-fade-in {
+    animation: admin-fade-in 0.3s ease-out forwards;
+  }
 }
